@@ -10,7 +10,6 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Vibrator;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
 
 /**
@@ -32,7 +31,7 @@ public class RollingBallPanel extends View
 	final float BALL_DIAMETER_ADJUST_FACTOR = 15;
 
 	final int DEFAULT_LABEL_TEXT_SIZE = 200; // tweak as necessary
-	final int DEFAULT_STATS_TEXT_SIZE = 10;
+	final int DEFAULT_STATS_TEXT_SIZE = 30;
 	final int DEFAULT_GAP = 7; // between lines of text
 	final int DEFAULT_OFFSET = 10; // from bottom of display
 
@@ -45,14 +44,14 @@ public class RollingBallPanel extends View
 	final float PATH_WIDTH_WIDE = 8.0f; // ... x ball diameter
 	final float BALL_START_X = 100;
 	final float BALL_START_Y = 100;
-	float finishTop = -300;
-	float finishBottom = -400;
-	float finishLeft = 100;
-	float finishRight = 200;
+	final float FINISH_SQUARE_A[] = {100, -300, 200, -400}; //left, top, right, bottom
+	final float FINISH_SQUARE_B[] = {-200, 400, -100, 300}; //left, top, right, bottom
+	float finishSquare[];
 	int levelCleared = 0;
 	boolean tapToExit = false;
 	boolean tapToStart = false; //locks the ball position on start of level, player must tap screen to start
 	boolean timeStop = false; //if true, ball does not move
+	int currentLevel; //contador de nível do jogo (cada vez que toca no quadrado verde = +1 level)
 	//~~~~~~~
 
 	//Check Laps
@@ -77,7 +76,6 @@ public class RollingBallPanel extends View
 	float pathWidth;
 	boolean touchFlag;
 	Vibrator vib;
-	int wallHits;
 
 	float xBall, yBall; // top-left of the ball (for painting)
 	float xBallCenter, yBallCenter; // center of the ball
@@ -91,6 +89,7 @@ public class RollingBallPanel extends View
 	float xCenter, yCenter; // the center of the screen
 	long now, lastT, startTime, elapsedTime;
 	Paint statsPaint, labelPaint, dangerLinePaint, dangerFillPaint, finishLinePaint, finishFillPaint, backgroundPaint;
+	int labelColor = 0x00ffffff;
 
 	public RollingBallPanel(Context contextArg)
 	{
@@ -113,6 +112,8 @@ public class RollingBallPanel extends View
 	// things that can be initialized from within this View
 	private void initialize()
 	{
+		finishSquare = FINISH_SQUARE_A;
+
 		finishLinePaint = new Paint();
 		finishLinePaint.setColor(0xff6ab64a);
 		finishLinePaint.setStyle(Paint.Style.STROKE);
@@ -143,8 +144,9 @@ public class RollingBallPanel extends View
 		labelPaint.setAntiAlias(true);
 
 		statsPaint = new Paint();
-		statsPaint.setAntiAlias(true);
+		statsPaint.setColor(Color.WHITE);
 		statsPaint.setTextSize(DEFAULT_STATS_TEXT_SIZE);
+		statsPaint.setAntiAlias(true);
 
 		lastT = System.nanoTime();
 
@@ -169,7 +171,7 @@ public class RollingBallPanel extends View
 		innerShadowRectangle = new RectF();
 		outerShadowRectangle = new RectF();
 		ballNow = new RectF();
-		wallHits = 0;
+		currentLevel = 0;
 	}
 
 	public void setGain(float gainArg)
@@ -248,53 +250,64 @@ public class RollingBallPanel extends View
 		yBallCenter = yBall + ballDiameter / 2f;
 
 		//bola acerta quadrado verde = WIN (avança 1 level)
-		if (ballTouchingLine() == 1 && !touchFlag)
+		if (ballTouchingLine() == 1 && !touchFlag && levelCleared != -1)
 		{
-			touchFlag = true;
+//			touchFlag = true;
 //			vib.vibrate(10); // 10 ms vibrotactile pulse
-//			++wallHits;
+			++currentLevel;
 			levelCleared = 1;
-			timeStop = true;
-			invalidate();
+			labelColor = 0xffffffff;
+//			timeStop = true;
+			if (finishSquare == FINISH_SQUARE_A)
+				finishSquare = FINISH_SQUARE_B;
+			else
+				finishSquare = FINISH_SQUARE_A;
+
+			finishRectangle.left = xCenter + finishSquare[0];
+			finishRectangle.top = yCenter - finishSquare[1];
+			finishRectangle.right = xCenter + finishSquare[2];
+			finishRectangle.bottom = yCenter - finishSquare[3];
+//			invalidate();
 		}//bola acerta quadrado vermelho = LOSE
-		if (ballTouchingLine() == -1 && !touchFlag)
+		else if (ballTouchingLine() == -1 && !touchFlag)
 		{
+			//what if we change ball positio to 0,0?
 			touchFlag = true;
 			vib.vibrate(10); // 10 ms vibrotactile pulse
-//			++wallHits;
 			levelCleared = -1;
 			timeStop = true;
 			invalidate();
-		} else if (ballTouchingLine() == 0 && touchFlag && tapToExit) {
+		}//bola encostou no quadrado vermelho, esperando toque para voltar ao menu
+		else if (ballTouchingLine() == 0 && touchFlag && tapToExit) {
 			touchFlag = false;
 			Intent i = new Intent(this.getContext(), DemoTiltBallSetup.class);
-			this.getContext().startActivity(i); //Level cleared!
+			this.getContext().startActivity(i); //retorna ao menu principal
 		}
 
 		
-		 if(lapStart == false && lapCheckOneBool == false && RectF.intersects(ballNow,lineStart)){
-			lapStart = true;
-			Log.i(MYDEBUG, "Start LAP");
-			
-		}
-		
-		if(lapStart == true && lapCheckOneBool == false && RectF.intersects(ballNow,lapCheckOne)){
-			lapStart = true;
-			lapCheckOneBool = true;
-			Log.i(MYDEBUG, "Lap Check");
-		}
-		
-		if(lapStart == true && lapCheckOneBool == true && RectF.intersects(ballNow,lapDirectionCheck)){
-			lapDirection = true;
-		}
-		
-		if(lapStart == true && lapDirection == true && lapCheckOneBool == true && RectF.intersects(ballNow,lineStart)){
-			lapStart = true;
-			lapDirection = false;
-			lapCheckOneBool = false;
-			lapCount ++;
-			Log.i(MYDEBUG, "NEW LAP");
-		}
+//		 if(lapStart == false && lapCheckOneBool == false && RectF.intersects(ballNow,lineStart)){
+//			lapStart = true;
+//			Log.i(MYDEBUG, "Start LAP");
+//
+//		}
+//
+//		if(lapStart == true && lapCheckOneBool == false && RectF.intersects(ballNow,lapCheckOne)){
+//			lapStart = true;
+//			lapCheckOneBool = true;
+//			Log.i(MYDEBUG, "Lap Check");
+//		}
+//
+//		if(lapStart == true && lapCheckOneBool == true && RectF.intersects(ballNow,lapDirectionCheck)){
+//			lapDirection = true;
+//		}
+//
+//		if(lapStart == true && lapDirection == true && lapCheckOneBool == true && RectF.intersects(ballNow,lineStart)){
+//			lapStart = true;
+//			lapDirection = false;
+//			lapCheckOneBool = false;
+//			lapCount ++;
+//			Log.i(MYDEBUG, "NEW LAP");
+//		}
 		 
 
 		invalidate(); // force onDraw to redraw the screen with the ball in its new position
@@ -361,15 +374,18 @@ public class RollingBallPanel extends View
 //		{
 //			//canvas.drawText("Wall hits = " + wallHits, 6f, screenHeight - offset - 5f * (statsTextSize + gap),statsPaint);
 
-		if (levelCleared == 1) {
-			labelPaint.setColor(Color.WHITE);
+		canvas.drawText("Level "+ currentLevel, screenWidth - 165, screenHeight/10f - 50, statsPaint);
+
+		if (labelColor != 0x00ffffff) {
+			labelPaint.setColor(labelColor);
 			canvas.drawText("Level", 0, screenHeight / 3f, labelPaint);
-			canvas.drawText("Clear!", 0, 2 * screenHeight / 3f, labelPaint);
+			canvas.drawText("Up!", 0, 2 * screenHeight / 3f, labelPaint);
+			labelColor -= 0x05000000;
 		}
 		else if (levelCleared == -1) {
 			labelPaint.setColor(0xffdd9494);
-			canvas.drawText("Level", 0, screenHeight / 3f, labelPaint);
-			canvas.drawText("Failed!", 0, 2 * screenHeight / 3f, labelPaint);
+			canvas.drawText("Game", 0, screenHeight / 3f, labelPaint);
+			canvas.drawText("Over!", 0, 2 * screenHeight / 3f, labelPaint);
 		}
 
 //			canvas.drawText("-----------------", 6f, screenHeight - offset - 4f * (statsTextSize + gap), statsPaint);
@@ -448,10 +464,10 @@ public class RollingBallPanel extends View
 
 
 		radiusOuter = screenWidth < screenHeight ? 0.40f * screenWidth : 0.40f * screenHeight;
-		finishRectangle.left = xCenter + finishLeft;
-		finishRectangle.top = yCenter - finishTop;
-		finishRectangle.right = xCenter + finishRight;
-		finishRectangle.bottom = yCenter - finishBottom;
+		finishRectangle.left = xCenter + finishSquare[0];
+		finishRectangle.top = yCenter - finishSquare[1];
+		finishRectangle.right = xCenter + finishSquare[2];
+		finishRectangle.bottom = yCenter - finishSquare[3];
 
 		// NOTE: path width is 4 x ball diameter
 		radiusInner = radiusOuter - pathWidth * ballDiameter;
@@ -508,10 +524,10 @@ public class RollingBallPanel extends View
 			ballNow.right = xBallCenter + 1;
 			ballNow.bottom = yBallCenter + 1;
 
-			if (RectF.intersects(ballNow, finishRectangle) && !RectF.intersects(ballNow, outerShadowRectangle))
+			if (RectF.intersects(ballNow, finishRectangle))
 				return 1; // touching outside square
 
-			if (RectF.intersects(ballNow, dangerRectangle) && !RectF.intersects(ballNow, innerShadowRectangle))
+			if (RectF.intersects(ballNow, dangerRectangle))
 				return -1; // touching inside square
 		}
 

@@ -115,14 +115,17 @@ public class DemoTiltBallActivity extends Activity implements SensorEventListene
 			@Override
 			public boolean onTouch(View view, MotionEvent motionEvent) {
 				if (motionEvent.getAction() == MotionEvent.ACTION_DOWN)
-					if (rb.levelCleared != 0)
+					if (rb.levelCleared == -1) {//game over, tap to return to main menu
 						rb.tapToExit = true;
-					else {
+					}
+					else if (rb.levelCleared == 0){//game still running
 						rb.timeStop = true;
 						rb.tapToStart = true;
 					}
-				if (motionEvent.getAction() == MotionEvent.ACTION_UP)
+				if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
 					rb.timeStop = false;
+					rb.levelCleared = 0;
+				}
 				return true;
 			}
 		});

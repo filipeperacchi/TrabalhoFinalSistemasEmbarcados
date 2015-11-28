@@ -8,12 +8,17 @@ import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 
 /**
+ * Original code structure by:
 * DemoAndroid - with modifications by...
 *
 * Login ID - CSE03076
 * Student ID - 210635597
 * Last name - Likhite
 * First name(s) - Rohan
+ *
+ * Reutilizado e modificado por:
+ * Filipe Peracchi Pisoni
+ * Alex Moraes
 */
 
 public class DemoTiltBallSetup extends Activity 
